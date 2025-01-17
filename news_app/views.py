@@ -4,6 +4,8 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from .models import Post
 from .filters import PostFilter
 from .forms import PostForm
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+
 
 class PostsList(ListView):
     model = Post
@@ -49,7 +51,8 @@ class PostSearch(ListView):
         context['filterset'] = self.filterset
         return context
 
-class PostCreate(CreateView):
+class PostCreate(PermissionRequiredMixin, CreateView):
+    permission_required = ('news_app.add_post',)
     form_class = PostForm
     model = Post
     template_name = 'news_create.html'
@@ -78,13 +81,15 @@ class PostCreate(CreateView):
         return super().form_valid(form)
 
 # Добавляем представление для изменения товара.
-class PostUpdate(UpdateView):
+class PostUpdate(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = ('news_app.change_post',)
     form_class = PostForm
     model = Post
     template_name = 'news_edit.html'
 
     # Представление удаляющее товар.
-class PostDelete(DeleteView):
+class PostDelete(PermissionRequiredMixin, DeleteView):
+    permission_required = ('news_app.delete_post',)
     model = Post
     template_name = 'news_delete.html'
     success_url = reverse_lazy('posts_list')
