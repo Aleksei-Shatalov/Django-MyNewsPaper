@@ -1,11 +1,16 @@
-from django.shortcuts import render
-from django.urls import reverse_lazy
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from .models import Post
+from .models import Post, Category
 from .filters import PostFilter
 from .forms import PostForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.http import HttpResponse, HttpResponseRedirect
+from django.contrib.auth.models import User
+from django.core.signing import Signer
+from .utils import send_news_to_subscribers
 
+signer = Signer()
 
 class PostsList(ListView):
     model = Post
@@ -77,7 +82,13 @@ class PostCreate(PermissionRequiredMixin, CreateView):
         else:
             raise ValueError("Unknown type in the request path.")  # Ошибка, если тип не определён
 
+        category = form.cleaned_data['categories']
         post.save()
+
+        post.categories.add(category)  # Добавляем одну категорию
+
+        send_news_to_subscribers(category, post.title, post.text)  # Отправляем письмо
+
         return super().form_valid(form)
 
 # Добавляем представление для изменения товара.
@@ -94,3 +105,41 @@ class PostDelete(PermissionRequiredMixin, DeleteView):
     template_name = 'news_delete.html'
     success_url = reverse_lazy('posts_list')
 
+signer = Signer()
+
+def subscribe(request):
+    if request.method == "POST":
+        category_id = request.POST.get("category_id")
+        category = get_object_or_404(Category, id=category_id)
+
+        if not Post.objects.filter(categories=category, type='NW').exists():
+            return HttpResponse("Подписка доступна только для новостей.", status=400)
+
+        if request.user.is_authenticated:
+            category.subscribers.add(request.user)
+        redirect_url = request.POST.get("redirect_url", reverse('post_list'))
+        return redirect(redirect_url)
+
+    return HttpResponse("Некорректный запрос", status=400)
+
+def unsubscribe(request):
+    category_id = request.GET.get('category_id')
+    user_id = request.GET.get('user_id')
+    token = request.GET.get('token')
+
+    # Проверяем параметры
+    if not category_id or not user_id or not token:
+        return HttpResponse("Некорректная ссылка", status=400)
+
+    try:
+        data = signer.unsign(token)
+        if data != f"{user_id}:{category_id}":
+            return HttpResponse("Некорректный токен", status=400)
+    except:
+        return HttpResponse("Некорректный токен", status=400)
+
+    category = get_object_or_404(Category, id=category_id)
+    user = get_object_or_404(User, id=user_id)
+    category.subscribers.remove(user)
+
+    return HttpResponse("Вы успешно отписались от категории новостей.")
