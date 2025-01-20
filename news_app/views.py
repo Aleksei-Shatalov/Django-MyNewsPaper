@@ -1,14 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from .models import Post, Category
+from .models import Post, Category, Author
 from .filters import PostFilter
 from .forms import PostForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.contrib.auth.models import User
 from django.core.signing import Signer
 from .utils import send_news_to_subscribers
+from datetime import datetime, timedelta
+from django.utils.timezone import now
 
 signer = Signer()
 
@@ -81,14 +83,17 @@ class PostCreate(PermissionRequiredMixin, CreateView):
             post.type = 'AR'
         else:
             raise ValueError("Unknown type in the request path.")  # Ошибка, если тип не определён
+        author = Author.objects.get(user=self.request.user)
+        today = now() - timedelta(days=1)
+        posts_today = Post.objects.filter(author=author, created_at__gte=today).count()
+        if posts_today >= 3:
+            return HttpResponseForbidden("Вы не можете публиковать более 3 новостей в сутки.")
+        form.instance.author = author
 
         category = form.cleaned_data['categories']
         post.save()
-
         post.categories.add(category)  # Добавляем одну категорию
-
-        send_news_to_subscribers(category, post.title, post.text)  # Отправляем письмо
-
+        send_news_to_subscribers(category, post.title, post.text, post_id=post.id)  # Отправляем письмо
         return super().form_valid(form)
 
 # Добавляем представление для изменения товара.
