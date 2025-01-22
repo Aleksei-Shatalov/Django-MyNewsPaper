@@ -8,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.contrib.auth.models import User
 from django.core.signing import Signer
-from .utils import send_news_to_subscribers
+from .tasks import send_news_to_subscribers_task
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 
@@ -93,7 +93,8 @@ class PostCreate(PermissionRequiredMixin, CreateView):
         category = form.cleaned_data['categories']
         post.save()
         post.categories.add(category)  # Добавляем одну категорию
-        send_news_to_subscribers(category, post.title, post.text, post_id=post.id)  # Отправляем письмо
+        #send_news_to_subscribers(category, post.title, post.text, post_id=post.id)  # Отправляем письмо
+        send_news_to_subscribers_task.delay(category.id, post.title, post.text, post.id)
         return super().form_valid(form)
 
 # Добавляем представление для изменения товара.
