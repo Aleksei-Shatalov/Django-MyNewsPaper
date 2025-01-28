@@ -4,10 +4,13 @@
         <title>{% block head_title %}{% endblock head_title %}</title>
     </head>
     <body>
-        {% block body %}
-        {% block content %}
-        {% endblock content %}
-        {% endblock body %}
+        {% load cache %}
+            {% cache 30 body, content %}
+                 {% block body %}
+                 {% block content %}
+                 {% endblock content %}
+                 {% endblock body %}
+            {% endcache %}
         {% block extra_body %}
         {% endblock extra_body %}
     </body>

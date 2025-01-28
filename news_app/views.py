@@ -11,7 +11,7 @@ from django.core.signing import Signer
 from .tasks import send_news_to_subscribers_task
 from datetime import datetime, timedelta
 from django.utils.timezone import now
-
+from django.core.cache import cache
 signer = Signer()
 
 class PostsList(ListView):
@@ -29,6 +29,15 @@ class PostDetail(DetailView):
     template_name = 'post.html'
     context_object_name = 'post'
 
+    def get_object(self, *args, **kwargs):  # переопределяем метод получения объекта, как ни странно
+        obj = cache.get(f'post-{self.kwargs["pk"]}',
+                        None)  # кэш очень похож на словарь, и метод get действует так же. Он забирает значение по ключу, если его нет, то забирает None.
+
+        # если объекта нет в кэше, то получаем его и записываем в кэш
+        if not obj:
+            obj = super().get_object(queryset=self.queryset)
+            cache.set(f'post-{self.kwargs["pk"]}', obj)
+        return obj
 
 # Добавляем новое представление для создания товаров.
 class PostSearch(ListView):
