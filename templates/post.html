@@ -1,5 +1,6 @@
 {% extends 'flatpages/default.html' %}
 {% load censor_filters %}
+{% load i18n %}
 
 {% block title %}
 {{ post.title|censor }}
@@ -8,13 +9,13 @@
 {% block content %}
 <h1>{{ post.title|censor }}</h1>
 <p>{{ post.created_at|date:'d M Y' }}</p>
-<p>Категория:
+<p>{% trans "Category:" %}
     {% for category in post.categories.all %}
         {{ category.name }}
     {% endfor %}
 </p>
 <p>{{ post.text|censor }}</p>
-<p>Автор: {{ post.author.user.username }}</p>
+<p>{% trans "Author:" %} {{ post.author.user.username|default:"Unknown Author" }}</p>
 
 {% if post.type == 'NW' %}
     <form method="post" action="{% url 'subscribe' %}">
@@ -23,7 +24,7 @@
             <input type="hidden" name="category_id" value="{{ category.id }}">
         {% endfor %}
         <input type="hidden" name="next" value="{{ request.path }}">
-        <button type="submit">Подписаться на эту категорию</button>
+        <button type="submit">{% trans "Subscribe to this category" %}</button>
     </form>
 {% endif %}
 {% endblock content %}

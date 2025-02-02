@@ -1,0 +1,11 @@
+{% extends 'news.html' %}
+{% load i18n %}
+
+{% block title %}
+    {% trans "News List" %}
+{% endblock title %}
+
+{% block content %}
+    <h1>{% trans "News" %}</h1>
+    {{ block.super }}
+{% endblock content %}

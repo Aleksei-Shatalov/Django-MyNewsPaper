@@ -1,29 +1,61 @@
 {% extends 'flatpages/default.html' %}
 {% load censor_filters %}
+{% load i18n %}
 
-<!-- Название у нас будет Product -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page title</title>
+</head>
+<body>
+    <form action="{% url 'set_language' %}" method="POST"> {% csrf_token %} <!-- Не забываем по csrf_token для POST-запросов -->
+        <input type="hidden" name="next" value="{{ redirect_to }}">
+
+        <select name="language" id="">
+            {% get_available_languages as LANGUAGES %} <!-- получаем языки -->
+            {% get_language_info_list for LANGUAGES as languages %} <!-- Помещаем их в список languages -->
+
+            {% for language in languages %} <!-- Итерируясь по списку, выводим их название на языке пользователя и код -->
+                <option value="{{ language.code }}" {% if language.code == LANGUAGE_CODE %} selected {% endif %} >
+                    {{ language.name_local }} - {{ language.code }}
+                </option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="set">
+    </form>
+
+    {% for model in models %}
+    <div class="model-class">
+        {{ model.name }}
+    </div>
+    {% endfor %}
+
+
 {% block title %}
 Post.title
 {% endblock title %}
 
 {% block content %}
-    <h1>Все новости</h1>
-    <h1>Всего новостей: {{ posts|length }}</h1>
+    <h1>{% trans "All news" %}</h1>
+    <h1>{% trans "Total news:" %}{{ posts|length }}</h1>
 
     <hr>
     {% if posts %}
         <table>
             <tr>
-                <td>Заголовок</td>
-                <td>Дата публикации</td>
-                <td>Текст</td>
+                <td>{% trans "Title" %}</td>
+                <td>{% trans "Publication date"%}</td>
+                <td>{% trans "Text" %}</td>
             </tr>
 
 
             {% for post in posts %}
             <tr>
-
-                <td>{{ post.title|censor }}</td>
+                <td>
+                    <a href="{% url 'post_detail' post.pk %}">{{ post.title|censor }}</a>
+                </td>
                 <td>{{ post.created_at|date:'d M Y'  }}</td>
                 <td>{{ post.text|truncatechars:20|censor }}</td>
             </tr>
@@ -31,7 +63,7 @@ Post.title
 
         </table>
     {% else %}
-        <h2>Новостей нет!</h2>
+        <h2>{% trans "There is no news!" %}</h2>
     {% endif %}
 
     {# Добавляем пагинацию на страницу #}
@@ -58,3 +90,5 @@ Post.title
     {% endif %}
 
 {% endblock content %}
+</body>
+</html>

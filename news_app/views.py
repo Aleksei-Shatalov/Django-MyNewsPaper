@@ -13,6 +13,20 @@ from datetime import datetime, timedelta
 from django.utils.timezone import now
 from django.core.cache import cache
 signer = Signer()
+from django.views import View
+from django.utils.translation import gettext as _ #  импортируем функцию для перевода
+from django.utils.translation import activate, get_supported_language_variant
+from django.utils import timezone
+import pytz #  импортируем стандартный модуль для работы с часовыми поясами
+from django.shortcuts import render
+from rest_framework import viewsets, status, generics
+from rest_framework.response import Response
+from rest_framework import permissions
+from .serializers import *
+import django_filters
+from .permissions import IsAuthenticatedOrReadOnly
+from news_app.serializers import PostSerializer
+
 
 class PostsList(ListView):
     model = Post
@@ -22,12 +36,33 @@ class PostsList(ListView):
     context_object_name = 'posts'
     paginate_by = 10  # вот так мы можем указать количество записей на странице
 
+class NewsListView(ListView):
+    model = Post
+    ordering = 'created_at'
+    template_name = 'news_list.html'  # шаблон для списка новостей
+    context_object_name = 'posts'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Post.objects.filter(type='NW').order_by('-created_at')
+
+class ArticlesListView(ListView):
+    model = Post
+    ordering = 'created_at'
+    template_name = 'articles_list.html'  # шаблон для списка статей
+    context_object_name = 'posts'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Post.objects.filter(type='AR').order_by('-created_at')
 
 
 class PostDetail(DetailView):
     model = Post
     template_name = 'post.html'
     context_object_name = 'post'
+
+    queryset = Post.objects.all()  # Добавляем queryset
 
     def get_object(self, *args, **kwargs):  # переопределяем метод получения объекта, как ни странно
         obj = cache.get(f'post-{self.kwargs["pk"]}',
@@ -158,3 +193,59 @@ def unsubscribe(request):
     category.subscribers.remove(user)
 
     return HttpResponse("Вы успешно отписались от категории новостей.")
+
+
+class Index(View):
+    def get(self, request):
+        curent_time = timezone.now()
+
+        # .  Translators: This message appears on the home page only
+        models = Post.objects.all()
+
+        context = {
+            'models': models,
+            'current_time': timezone.now(),
+            'timezones': pytz.common_timezones  # добавляем в контекст все доступные часовые пояса
+        }
+
+        return HttpResponse(render(request, 'default.html', context))
+
+    #  по пост-запросу будем добавлять в сессию часовой пояс, который и будет обрабатываться написанным нами ранее middleware
+    def post(self, request):
+        request.session['django_timezone'] = request.POST['timezone']
+        return redirect('/')
+
+class PostViewset(viewsets.ModelViewSet):
+    queryset = (
+Post.objects.all().filter(is_active=True))
+    serializer_class = PostSerializer
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filterset_fields = ["type", "created_at", "categories", "title"]
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def destroy(self, request, pk, format=None):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def list(self, request, *args, **kwargs):
+        if request.path.endswith('/news/'):
+            self.queryset = self.queryset.filter(type='news')
+        elif request.path.endswith('/articles/'):
+            self.queryset = self.queryset.filter(type='article')
+
+        return super().list(request, *args, **kwargs)
+
+class NewsViewset(viewsets.ViewSet):
+    def list(self, request):
+        news_posts = Post.objects.filter(type='News', is_active=True)
+        serializer = PostSerializer(news_posts, many=True)
+        return Response(serializer.data)
+
+
+class ArticleViewset(viewsets.ViewSet):
+    def list(self, request):
+        article_posts = Post.objects.filter(type='Article', is_active=True)
+        serializer = PostSerializer(article_posts, many=True)
+        return Response(serializer.data)

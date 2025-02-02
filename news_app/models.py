@@ -3,6 +3,10 @@ from django.contrib.auth.models import User
 from datetime import datetime
 from django.urls import reverse
 from django.core.cache import cache
+from django.db import models
+from django.utils.translation import gettext as _
+from django.utils.translation import pgettext_lazy # импортируем «ленивый» геттекст с подсказкой
+from django.utils.translation import gettext as _
 
 class Author(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -23,7 +27,7 @@ class Author(models.Model):
         self.save()
 
 class Category(models.Model):
-    name = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=64, unique=True, help_text = _('category name'))
     subscribers = models.ManyToManyField(User, related_name="subscribed_categories", blank=True)
 
     def __str__(self):
@@ -40,10 +44,11 @@ class Post(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     type = models.CharField(max_length=2, choices=POST_TYPES, default=NEWS)
     created_at = models.DateTimeField(auto_now_add=True)
-    categories = models.ManyToManyField(Category, through='PostCategory')
+    categories = models.ManyToManyField(Category, through='PostCategory', verbose_name = pgettext_lazy('help text for Post model', 'This is the help text'),)
     title = models.CharField(max_length=128)
     text = models.TextField()
     rating = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
 
     def like(self):
         self.rating += 1

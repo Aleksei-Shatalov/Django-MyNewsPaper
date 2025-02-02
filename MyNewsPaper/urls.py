@@ -17,13 +17,30 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
+#from rest_framework import routers
+#from rest_framework.routers import DefaultRouter
+from news_app.views import PostsList, NewsListView, ArticlesListView
+
+
+#router = DefaultRouter()
+#router = routers.DefaultRouter()
+#router.register(r'posts', views.PostViewset, basename='post')
+
 
 urlpatterns = [
+    path('i18n/', include('django.conf.urls.i18n')),
     path('admin/', admin.site.urls),
+    path('swagger-ui/', TemplateView.as_view(
+        template_name='swagger-ui.html',
+        extra_context={'schema_url': 'openapi-schema'}
+    ), name='swagger-ui'),
     path('pages/', include('django.contrib.flatpages.urls')),
-    path('', include('protect.urls')),
+    path('', include('news_app.urls')),
+    path('protect/', include('protect.urls')),
     path('sign/', include('sign.urls')),
-    path('news/', include('news_app.urls')),
-    path('articles/', include('news_app.urls')),
+    path('news/', NewsListView.as_view(), name='news_list'),  #'news_app.urls'
+    path('articles/', ArticlesListView.as_view(), name='articles_list'),
     path('accounts/', include('allauth.urls')),
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]
